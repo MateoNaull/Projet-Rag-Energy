@@ -1,0 +1,24 @@
+# LangChain + communautés
+langchain==0.2.11
+langchain-community==0.2.10
+
+# Vector store
+chromadb==0.5.5
+
+# Embeddings
+sentence-transformers==3.0.1
+
+# Lecture documents
+pypdf==4.3.1
+unstructured==0.15.0
+python-docx==1.1.2
+
+# Gestion .env
+python-dotenv==1.0.1
+
+# Encodage tokens (utile avec OpenAI)
+tiktoken==0.7.0
+
+# API OpenAI (si tu veux GPT/embeddings OpenAI)
+openai==1.40.0
+langchain-openai==0.1.19
