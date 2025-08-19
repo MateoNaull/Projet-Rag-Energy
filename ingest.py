@@ -36,16 +36,30 @@ def load_file(path: Path) -> str:
 
 
 # ========= 3) Découpage en chunks =========
-def chunk_text(text: str, size: int = 500, overlap: int = 50):
-    """Découpe un texte en morceaux (chunks) pour l'indexation"""
-    words = text.split()
+import re
+
+def chunk_text_by_sentence(text: str, size: int = 500, overlap: int = 50):
+    """
+    Découpe le texte en chunks basés sur les phrases avec chevauchement.
+    """
+    sentences = re.split(r'(?<=[.!?]) +', text)  
     chunks = []
-    i = 0
-    while i < len(words):
-        chunk = " ".join(words[i:i+size])
-        chunks.append(chunk)
-        i += size - overlap
+    chunk = []
+    word_count = 0
+
+    for sentence in sentences:
+        words = sentence.split()
+        if word_count + len(words) > size:
+            chunks.append(" ".join(chunk))
+            chunk = chunk[-overlap:] if overlap < len(chunk) else chunk
+            word_count = len(chunk)
+        chunk.extend(words)
+        word_count += len(words)
+
+    if chunk:
+        chunks.append(" ".join(chunk))
     return chunks
+
 
 
 # ========= 4) Initialisation des embeddings =========
@@ -64,7 +78,7 @@ for f in all_files:
     if not text.strip():
         continue
 
-    chunks = chunk_text(text)
+    chunks = chunk_text_by_sentence(text)
     embeddings = [model.encode(c).tolist() for c in chunks]
 
     collection.add(
