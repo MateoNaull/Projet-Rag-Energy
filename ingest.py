@@ -6,13 +6,13 @@ import chromadb
 import pandas as pd
 import docx
 import pypdf
+import re
 
-# ========= 1) Récupération des fichiers =========
+
 data_path = Path("data/")
-all_files = list(data_path.rglob("*.*"))  # prend tous les fichiers de data/
+all_files = list(data_path.rglob("*.*")) 
 
 
-# ========= 2) Extraction du texte =========
 def load_file(path: Path) -> str:
     """Retourne le texte brut d'un fichier selon son type"""
     if path.suffix.lower() == ".pdf":
@@ -35,13 +35,9 @@ def load_file(path: Path) -> str:
         return ""
 
 
-# ========= 3) Découpage en chunks =========
-import re
 
 def chunk_text_by_sentence(text: str, size: int = 500, overlap: int = 50):
-    """
-    Découpe le texte en chunks basés sur les phrases avec chevauchement.
-    """
+
     sentences = re.split(r'(?<=[.!?]) +', text)  
     chunks = []
     chunk = []
@@ -62,16 +58,13 @@ def chunk_text_by_sentence(text: str, size: int = 500, overlap: int = 50):
 
 
 
-# ========= 4) Initialisation des embeddings =========
 model = SentenceTransformer("all-MiniLM-L6-v2")
 
 
-# ========= 5) Connexion à Chroma =========
-client = chromadb.PersistentClient(path="outputs/index")  # sauvegarde l’index
+client = chromadb.PersistentClient(path="outputs/index")  
 collection = client.get_or_create_collection("energie_rag")
 
 
-# ========= 6) Pipeline complet =========
 for f in all_files:
     print(f"📄 Traitement : {f}")
     text = load_file(f)

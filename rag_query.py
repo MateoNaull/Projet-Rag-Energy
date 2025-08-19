@@ -69,7 +69,7 @@ Consignes :
 
 # ===== 3) Exemple d’utilisation =====
 if __name__ == "__main__":
-    question = "Au premier trimestre 2025, quelle est la consommation totale de produits du charbon ou combustibles minéraux solides ?"
+    question = "Quel est le moyen de production le plus important en france ?"
     results = query_index(question, top_k=3)
     docs = results["documents"][0]
 
