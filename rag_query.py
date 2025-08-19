@@ -23,19 +23,30 @@ def query_index(question: str, top_k: int = 3):
     return results
 
 # ========== 4) Génération de réponse ==========
+def summarize_passage(text, max_tokens=100):
+    result = generator(
+        f"Résume en quelques phrases le texte suivant : {text}",
+        max_new_tokens=max_tokens
+    )
+    return result[0]["generated_text"]
+
 def generate_answer(question, docs):
-    context = "\n\n".join(docs)
+    # Résumer chaque passage
+    summaries = [summarize_passage(doc) for doc in docs]
+    context = "\n\n".join(summaries)
+
     prompt = f"""
     Tu es un assistant spécialisé en énergie.
     Question : {question}
 
-    Contexte (extraits de documents disponibles) :
+    Contexte (résumés des documents) :
     {context}
 
     Réponds uniquement à partir du contexte fourni, de façon claire et concise.
     """
     result = generator(prompt, max_new_tokens=256)
     return result[0]["generated_text"]
+
 
 # ========== 5) Exemple d’utilisation ==========
 if __name__ == "__main__":
@@ -45,9 +56,6 @@ if __name__ == "__main__":
     docs = results["documents"][0]
 
     print("\n🔎 Question :", question)
-    print("\n📚 Passages retrouvés :\n")
-    for d in docs:
-        print("-", d)
 
     print("\n📌 Réponse générée :\n")
     answer = generate_answer(question, docs)
