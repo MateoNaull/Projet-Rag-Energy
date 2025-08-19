@@ -22,3 +22,6 @@ tiktoken==0.7.0
 # API OpenAI (si tu veux GPT/embeddings OpenAI)
 openai==1.40.0
 langchain-openai==0.1.19
+
+transformers==4.44.0
+torch

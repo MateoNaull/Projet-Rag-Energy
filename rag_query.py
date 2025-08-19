@@ -1,30 +1,54 @@
 # src/rag_query.py
 
 import chromadb
+from transformers import pipeline
 
-# ========= 1) Connexion à Chroma =========
-client = chromadb.PersistentClient(path="outputs/index")
-collection = client.get_or_create_collection("energie_rag")
+# ========== 1) Connexion à Chroma ==========
+client_chroma = chromadb.PersistentClient(path="outputs/index")
+collection = client_chroma.get_or_create_collection("energie_rag")
 
-# ========= 2) Fonction de requête =========
+# ========== 2) Charger un modèle Hugging Face ==========
+# Flan-T5-base : petit modèle d'instruction, tourne sur CPU
+generator = pipeline(
+    "text2text-generation",
+    model="google/flan-t5-base"
+)
+
+# ========== 3) Recherche dans l'index ==========
 def query_index(question: str, top_k: int = 3):
-    """Interroge l'index et retourne les passages les plus pertinents"""
     results = collection.query(
         query_texts=[question],
         n_results=top_k
     )
     return results
 
+# ========== 4) Génération de réponse ==========
+def generate_answer(question, docs):
+    context = "\n\n".join(docs)
+    prompt = f"""
+    Tu es un assistant spécialisé en énergie.
+    Question : {question}
 
-# ========= 3) Exemple d’utilisation =========
+    Contexte (extraits de documents disponibles) :
+    {context}
+
+    Réponds uniquement à partir du contexte fourni, de façon claire et concise.
+    """
+    result = generator(prompt, max_new_tokens=256)
+    return result[0]["generated_text"]
+
+# ========== 5) Exemple d’utilisation ==========
 if __name__ == "__main__":
     question = "Quelle est la consommation énergétique en Île-de-France ?"
     results = query_index(question, top_k=3)
 
+    docs = results["documents"][0]
+
     print("\n🔎 Question :", question)
-    print("📌 Résultats pertinents :\n")
-    for i, doc in enumerate(results["documents"][0]):
-        print(f"--- Passage {i+1} ---")
-        print(doc)
-        print("Source:", results["metadatas"][0][i]["source"])
-        print()
+    print("\n📚 Passages retrouvés :\n")
+    for d in docs:
+        print("-", d)
+
+    print("\n📌 Réponse générée :\n")
+    answer = generate_answer(question, docs)
+    print(answer)
