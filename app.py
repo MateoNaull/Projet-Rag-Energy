@@ -1,77 +1,77 @@
+# app.py
 import streamlit as st
+from mistralai import Mistral
+from dotenv import load_dotenv
+import os
 import chromadb
 from sentence_transformers import SentenceTransformer
-from transformers import pipeline
 
-# ==============================
-# 1. Chargement du modèle d'embedding + index
-# ==============================
-model = SentenceTransformer("all-MiniLM-L6-v2")
+# ===== 1) Charger la clé API =====
+load_dotenv()
+api_key = os.getenv("MISTRAL_API_KEY")
+if not api_key:
+    st.error("❌ Pas de clé API MISTRAL trouvée. Vérifie ton .env")
+    st.stop()
+
+# ===== 2) Initialiser le client Mistral =====
+llm_client = Mistral(api_key=api_key)
+
+# ===== 3) Charger l’index Chroma =====
 client = chromadb.PersistentClient(path="outputs/index")
-collection = client.get_or_create_collection("energie_rag")
+collection = client.get_collection("energie_rag")
 
-# ==============================
-# 2. Chargement du LLM Hugging Face
-# ==============================
-# Ici on prend un modèle de génération léger et gratuit
-generator = pipeline("text-generation", model="tiiuae/falcon-7b-instruct", device=-1)  
-# device=-1 = CPU. Si tu as un GPU, remplace par device=0
+# Embeddings identiques à ceux d’ingest.py
+embedder = SentenceTransformer("all-MiniLM-L6-v2")
 
+# ===== 4) Fonction RAG =====
+def rag_query(question: str, k: int = 3):
+    # Encoder la question
+    q_embedding = embedder.encode(question).tolist()
 
-# ==============================
-# 3. Fonction RAG (retrieval + génération)
-# ==============================
-def rag_answer(question: str, k: int = 3, max_context_tokens: int = 400):
-    # Récupération des passages
-    query_emb = model.encode(question).tolist()
-    results = collection.query(query_embeddings=[query_emb], n_results=k)
-
-    passages = results["documents"][0]
+    # Récupérer les meilleurs passages
+    results = collection.query(query_embeddings=[q_embedding], n_results=k)
+    documents = results["documents"][0]
     sources = results["metadatas"][0]
 
-    # Tronquer les passages si trop longs
-    context = "\n".join(passages)
-    context = context[:max_context_tokens]
+    # Contexte
+    context = "\n\n".join(documents)
 
-    # Construire le prompt
-    prompt = (
-        f"Tu es un expert en énergie. Utilise les passages suivants pour répondre à la question.\n\n"
-        f"Contexte :\n{context}\n\n"
-        f"Question : {question}\n\n"
-        f"Réponse :"
+    # Prompt
+    prompt = f"""
+    Tu es un assistant expert en énergie.
+    Utilise uniquement les passages suivants pour répondre à la question de manière claire et concise.
+
+    Contexte :
+    {context}
+
+    Question :
+    {question}
+
+    Réponse :
+    """
+
+    # Appel au modèle
+    resp = llm_client.chat.complete(
+        model="mistral-small-latest",
+        messages=[{"role": "user", "content": prompt}]
     )
 
-    # Génération
-    response = generator(
-        prompt,
-        max_new_tokens=200,
-        do_sample=True,
-        temperature=0.7,
-        top_p=0.9
-    )[0]["generated_text"]
+    return resp.choices[0].message.content, documents, sources
 
-    # Nettoyage (supprimer le prompt du début)
-    answer = response[len(prompt):].strip()
+# ===== 5) Interface Streamlit =====
+st.title("⚡ RAG Énergie - Assistant IA")
+st.write("Pose une question et je vais chercher dans mon corpus documentaire.")
 
-    return answer, list(zip(passages, sources))
+question = st.text_input("💬 Ta question :", "")
 
+if st.button("🔎 Interroger") and question.strip():
+    with st.spinner("Recherche et génération en cours..."):
+        answer, docs, sources = rag_query(question)
 
-# ==============================
-# 4. Interface Streamlit
-# ==============================
-st.title("🔎 RAG Énergie – Demo")
-st.write("Posez une question sur le corpus énergétique")
-
-question = st.text_input("Votre question :")
-
-if st.button("Chercher") and question:
-    with st.spinner("Recherche en cours..."):
-        answer, passages_sources = rag_answer(question)
-
-    st.subheader("📌 Réponse générée :")
+    st.subheader("📌 Réponse")
     st.write(answer)
 
-    st.subheader("📚 Passages sources :")
-    for passage, meta in passages_sources:
-        st.markdown(f"- **Source :** {meta['source']}")
-        st.write(passage)
+    st.subheader("📚 Passages utilisés")
+    for i, doc in enumerate(docs):
+        st.markdown(f"**Source {i+1}** ({sources[i].get('source', 'inconnu')}) :")
+        st.write(doc[:400] + "...")
