@@ -15,7 +15,7 @@ llm_client = Mistral(api_key=api_key)
 client = chromadb.PersistentClient(path="outputs/index")
 collection = client.get_collection("energie_rag")
 
-embedder = SentenceTransformer("all-MiniLM-L6-v2") #le même embedder que dans ingest.py
+embedder = SentenceTransformer("all-MiniLM-L6-v2") #Le même embedder que dans ingest.py
 
 def rag_query(question: str, k: int = 3):
     q_embedding = embedder.encode(question).tolist()
